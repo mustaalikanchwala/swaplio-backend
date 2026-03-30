@@ -19,7 +19,7 @@ public class ListingImage {
     private Listing listing;
 
     @Column(nullable = false)
-    private String imageUrl;
+    private String imageKey;
 
     @Builder.Default
     private boolean isPrimary = false;
