@@ -3,11 +3,12 @@ package com.swaplio.swaplio_backend.dto.listing;
 
 import jakarta.validation.constraints.*;
 import org.springframework.web.multipart.MultipartFile;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-public record CreateListingRequest(
+public record UpdateListingRequest(
 
         @NotBlank(message = "Title is required")
         String title,
@@ -24,6 +25,10 @@ public record CreateListingRequest(
         @NotNull(message = "Category is required")
         UUID categoryId,
 
+        // IDs of existing images to KEEP
+        List<UUID> keepImageIds,
+
+        // New images to upload
         List<MultipartFile> images
 
 ) {}

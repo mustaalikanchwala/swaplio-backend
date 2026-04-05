@@ -2,6 +2,8 @@
 package com.swaplio.swaplio_backend.controller;
 
 import com.swaplio.swaplio_backend.dto.listing.CreateListingRequest;
+import com.swaplio.swaplio_backend.dto.listing.ListingResponse;
+import com.swaplio.swaplio_backend.dto.listing.UpdateListingRequest;
 import com.swaplio.swaplio_backend.model.Listing;
 import com.swaplio.swaplio_backend.model.ListingImage;
 import com.swaplio.swaplio_backend.service.ListingService;
@@ -54,18 +56,18 @@ public class ListingController {
     }
 
     // POST /api/listings  (requires login)
-    @PostMapping
-    public ResponseEntity<Listing> createListing(
-            @Valid @RequestBody CreateListingRequest request,
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ListingResponse> createListing(
+            @Valid @ModelAttribute CreateListingRequest request,
             Authentication auth) {
         return ResponseEntity.ok(listingService.createListing(request, auth.getName()));
     }
 
     // PUT /api/listings/{id}  (requires login)
-    @PutMapping("/{id}")
-    public ResponseEntity<Listing> updateListing(
+    @PutMapping(value = "/{id}",consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ListingResponse> updateListing(
             @PathVariable UUID id,
-            @Valid @RequestBody CreateListingRequest request,
+            @Valid @ModelAttribute UpdateListingRequest request,
             Authentication auth) {
         return ResponseEntity.ok(listingService.updateListing(id, request, auth.getName()));
     }
@@ -86,26 +88,4 @@ public class ListingController {
         return ResponseEntity.ok("Listing deleted");
     }
 
-    // POST /api/listings/{id}/images
-// Flutter sends images as multipart form data
-    @PostMapping(value = "/{id}/images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<List<ListingImage>> uploadImages(
-            @PathVariable UUID id,
-            @RequestParam("files") List<MultipartFile> files,
-            Authentication auth) throws IOException {
-
-        if (files.size() > 5) {
-            return ResponseEntity.badRequest().build(); // max 5 images per listing
-        }
-        return ResponseEntity.ok(listingService.uploadListingImages(id, files, auth.getName()));
-    }
-
-    // DELETE /api/listings/images/{imageId}
-    @DeleteMapping("/images/{imageId}")
-    public ResponseEntity<String> deleteImage(
-            @PathVariable UUID imageId,
-            Authentication auth) {
-        listingService.deleteListingImage(imageId, auth.getName());
-        return ResponseEntity.ok("Image deleted");
-    }
 }

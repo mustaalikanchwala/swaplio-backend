@@ -2,6 +2,9 @@
 package com.swaplio.swaplio_backend.service;
 
 import com.swaplio.swaplio_backend.dto.listing.CreateListingRequest;
+import com.swaplio.swaplio_backend.dto.listing.ListingImageResponse;
+import com.swaplio.swaplio_backend.dto.listing.ListingResponse;
+import com.swaplio.swaplio_backend.dto.listing.UpdateListingRequest;
 import com.swaplio.swaplio_backend.model.Category;
 import com.swaplio.swaplio_backend.model.Listing;
 import com.swaplio.swaplio_backend.model.ListingImage;
@@ -32,24 +35,35 @@ public class ListingService {
     private final StorageService storageService;
     private final ListingImageRepository listingImageRepository;
 
-
-    public Listing createListing(CreateListingRequest request, String sellerEmail) {
+    // ─── CREATE ──────────────────────────────────────────────────────────────
+    public ListingResponse createListing(CreateListingRequest request, String sellerEmail) {
         User seller = userRepository.findByEmail(sellerEmail)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         Category category = categoryRepository.findById(request.categoryId())
                 .orElseThrow(() -> new RuntimeException("Category not found"));
 
-        Listing listing = Listing.builder()
-                .seller(seller)
-                .category(category)
-                .title(request.title())
-                .description(request.description())
-                .price(request.price())
-                .condition(request.condition())
-                .build();
-        return listingRepository.save(listing);
+        Listing listing = listingRepository.save(Listing.builder()
+                            .seller(seller)
+                            .category(category)
+                            .title(request.title())
+                            .description(request.description())
+                            .price(request.price())
+                            .condition(request.condition())
+                            .build());
+        if(request.images()!= null && !request.images().isEmpty()){
+            try {
+                uploadAndSaveImages(listing,request.images(),0);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return toResponse(listing);
     }
 
+
+
+
+    // ─── QUERIES ──────────────────────────────────────────────────────────────
     public Page<Listing> getAllListings(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         return listingRepository.findByIsSoldFalseAndIsDeletedFalse(pageable);
@@ -76,19 +90,45 @@ public class ListingService {
         return getAllListings(page, size);
     }
 
-    public Listing updateListing(UUID id, CreateListingRequest request, String sellerEmail) {
+    // ─── UPDATE ──────────────────────────────────────────────────────────────
+    public ListingResponse updateListing(UUID id, UpdateListingRequest request, String sellerEmail) {
         Listing listing = listingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Listing not found"));
         if (!listing.getSeller().getEmail().equals(sellerEmail)) {
             throw new RuntimeException("You can only edit your own listings");
         }
+        Category category = categoryRepository.findById(request.categoryId()).orElseThrow(() -> new RuntimeException("Category not found"));
+
         listing.setTitle(request.title());
         listing.setDescription(request.description());
         listing.setPrice(request.price());
         listing.setCondition(request.condition());
-        return listingRepository.save(listing);
+        listing.setCategory(category);
+        listingRepository.save(listing);
+
+        List<UUID> keepIds = request.keepImageIds();
+        List<ListingImage> existingImages = listingImageRepository.findByListingIdOrderByDisplayOrder(listing.getId());
+        List<ListingImage> toDelete = existingImages.stream()
+                .filter(a -> !keepIds.contains(a.getId()))
+                .toList();
+        for(ListingImage img : toDelete){
+            storageService.deleteImage(img.getImageKey());
+            listingImageRepository.delete(img);
+        }
+
+        int nxtOrder = keepIds.size();
+        if(request.images() != null && !request.images().isEmpty()){
+            try {
+                uploadAndSaveImages(listing,request.images(),nxtOrder);
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        recomputePrimary(listing.getId());
+        return toResponse(listing);
     }
 
+    // ─── MARK AS SOLD ─────────────────────────────────────────────────────────
     public void markAsSold(UUID id) {
         Listing listing = listingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Listing not found"));
@@ -98,6 +138,7 @@ public class ListingService {
         listingRepository.save(listing);
     }
 
+    // ─── DELETE ──────────────────────────────────────────────────────────────
     public void deleteListing(UUID id, String sellerEmail) {
         Listing listing = listingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Listing not found"));
@@ -109,56 +150,71 @@ public class ListingService {
         listingRepository.save(listing);
     }
 
-    /**
-     * Upload images after creating a listing
-     * Flutter sends images separately after creating the listing
-     */
-    public List<ListingImage> uploadListingImages(UUID listingId,
-                                                  List<MultipartFile> files,
-                                                  String sellerEmail) throws IOException {
-        Listing listing = listingRepository.findById(listingId)
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
-
-        if (!listing.getSeller().getEmail().equals(sellerEmail)) {
-            throw new RuntimeException("You can only add images to your own listings");
-        }
-
-        List<ListingImage> savedImages = new ArrayList<>();
+    // ─── PRIVATE HELPERS ───────────────────────────────────────────────────
+    private void uploadAndSaveImages(Listing listing, List<MultipartFile> files, int j) throws IOException {
+        boolean noExistingPrimary = listingImageRepository
+                .findByListingIdOrderByDisplayOrder(listing.getId())
+                .stream()
+                .noneMatch(ListingImage::isPrimary);
 
         for (int i = 0; i < files.size(); i++) {
-            MultipartFile file = files.get(i);
+            // Upload to Supabase, returns the storage key (path only)
+            String key = storageService.uploadImage(
+                    files.get(i),
+                    "listings/" + listing.getId()
+            );
 
-            // Upload to Supabase Storage
-            String imageUrl = storageService.uploadImage(file, "listings/" + listingId);
-
-            ListingImage image = ListingImage.builder()
-                    .listing(listing)
-                    .imageUrl(imageUrl)
-                    .isPrimary(i == 0) // First image is the primary/thumbnail
-                    .displayOrder(i)
-                    .build();
-
-            savedImages.add(listingImageRepository.save(image));
+            listingImageRepository.save(
+                    ListingImage.builder()
+                            .listing(listing)
+                            .imageKey(key)                         // store KEY, never URL
+                            .isPrimary(noExistingPrimary && i == 0) // first image = primary if none exists
+                            .displayOrder(j + i)
+                            .build()
+            );
         }
-
-        return savedImages;
     }
 
-    /**
-     * Delete a specific image from a listing
-     */
-    public void deleteListingImage(UUID imageId, String sellerEmail) {
-        ListingImage image = listingImageRepository.findById(imageId)
-                .orElseThrow(() -> new RuntimeException("Image not found"));
+    private void recomputePrimary(UUID listingId) {
+        List<ListingImage> remaining =
+                listingImageRepository.findByListingIdOrderByDisplayOrder(listingId);
 
-        if (!image.getListing().getSeller().getEmail().equals(sellerEmail)) {
-            throw new RuntimeException("You can only delete your own images");
+        if (remaining.isEmpty()) return;
+
+        boolean hasPrimary = remaining.stream().anyMatch(ListingImage::isPrimary);
+        if (!hasPrimary) {
+            ListingImage first = remaining.get(0);
+            first.setPrimary(true);
+            listingImageRepository.save(first);
         }
+    }
 
-        // Remove from Supabase Storage
-        storageService.deleteImage(image.getImageUrl());
-        // Remove from database
-        listingImageRepository.delete(image);
+    public ListingResponse toResponse(Listing listing) {
+        List<ListingImage> images =
+                listingImageRepository.findByListingIdOrderByDisplayOrder(listing.getId());
+
+        List<ListingImageResponse> imageDtos = images.stream()
+                .map(img -> new ListingImageResponse(
+                        img.getId(),
+                        storageService.generateSignedUrl(img.getImageKey()), // sign here only
+                        img.isPrimary(),
+                        img.getDisplayOrder()
+                ))
+                .toList();
+
+        return ListingResponse.builder()
+                .id(listing.getId())
+                .title(listing.getTitle())
+                .description(listing.getDescription())
+                .price(listing.getPrice())
+                .condition(listing.getCondition())
+                .isSold(listing.isSold())
+                .categoryName(listing.getCategory().getName())
+                .sellerName(listing.getSeller().getFullName())
+                .sellerId(listing.getSeller().getId())
+                .images(imageDtos)
+                .createdAt(listing.getCreatedAt())
+                .build();
     }
 
 }
