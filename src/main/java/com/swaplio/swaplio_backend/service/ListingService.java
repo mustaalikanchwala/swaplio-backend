@@ -16,6 +16,7 @@ import com.swaplio.swaplio_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -64,28 +65,31 @@ public class ListingService {
 
 
     // ─── QUERIES ──────────────────────────────────────────────────────────────
-    public Page<Listing> getAllListings(int page, int size) {
+    @Transactional(readOnly = true)
+    public Page<ListingResponse> getAllListings(int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        return listingRepository.findByIsSoldFalseAndIsDeletedFalse(pageable);
+        return listingRepository.findByIsSoldFalseAndIsDeletedFalse(pageable).map(this::toResponse);
     }
 
-    public Listing getListingById(UUID id) {
-        return listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
+    @Transactional(readOnly = true)
+    public ListingResponse getListingById(UUID id) {
+        return toResponse(listingRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Listing not found")));
     }
 
-    public Page<Listing> searchListings(String keyword, UUID categoryId,
+    @Transactional(readOnly = true)
+    public Page<ListingResponse> searchListings(String keyword, UUID categoryId,
                                         BigDecimal minPrice, BigDecimal maxPrice,
                                         int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
         if (keyword != null && !keyword.isEmpty()) {
-            return listingRepository.searchListings(keyword, pageable);
+            return listingRepository.searchListings(keyword, pageable).map(this::toResponse);
         }
         if (categoryId != null) {
-            return listingRepository.findByCategoryIdAndIsSoldFalseAndIsDeletedFalse(categoryId, pageable);
+            return listingRepository.findByCategoryIdAndIsSoldFalseAndIsDeletedFalse(categoryId, pageable).map(this::toResponse);
         }
         if (minPrice != null && maxPrice != null) {
-            return listingRepository.findByPriceRange(minPrice, maxPrice, pageable);
+            return listingRepository.findByPriceRange(minPrice, maxPrice, pageable).map(this::toResponse);
         }
         return getAllListings(page, size);
     }

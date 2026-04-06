@@ -30,7 +30,7 @@ public class ListingController {
 
     // GET /api/listings?page=0&size=10
     @GetMapping
-    public ResponseEntity<Page<Listing>> getAllListings(
+    public ResponseEntity<Page<ListingResponse>> getAllListings(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(listingService.getAllListings(page, size));
@@ -38,13 +38,13 @@ public class ListingController {
 
     // GET /api/listings/{id}
     @GetMapping("/{id}")
-    public ResponseEntity<Listing> getListing(@PathVariable UUID id) {
+    public ResponseEntity<ListingResponse> getListing(@PathVariable UUID id) {
         return ResponseEntity.ok(listingService.getListingById(id));
     }
 
     // GET /api/listings/search?keyword=physics&categoryId=...&minPrice=50&maxPrice=500
     @GetMapping("/search")
-    public ResponseEntity<Page<Listing>> searchListings(
+    public ResponseEntity<Page<ListingResponse>> searchListings(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID categoryId,
             @RequestParam(required = false) BigDecimal minPrice,
