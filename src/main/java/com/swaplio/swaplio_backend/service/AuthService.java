@@ -4,6 +4,8 @@ package com.swaplio.swaplio_backend.service;
 import com.swaplio.swaplio_backend.dto.auth.AuthResponse;
 import com.swaplio.swaplio_backend.dto.auth.LoginRequest;
 import com.swaplio.swaplio_backend.dto.auth.RegisterRequest;
+import com.swaplio.swaplio_backend.exception.EmailAlreadyRegisterException;
+import com.swaplio.swaplio_backend.exception.InavlidCredentialsException;
 import com.swaplio.swaplio_backend.model.User;
 import com.swaplio.swaplio_backend.repository.UserRepository;
 import com.swaplio.swaplio_backend.util.JwtUtil;
@@ -21,7 +23,7 @@ public class AuthService {
 
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.email())) {
-            throw new RuntimeException("Email already registered");
+            throw new EmailAlreadyRegisterException("Email already registered");
         }
         User user = User.builder()
                 .fullName(request.fullName())
@@ -37,9 +39,9 @@ public class AuthService {
 
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new RuntimeException("Invalid email or password"));
+                .orElseThrow(() -> new InavlidCredentialsException("Invalid email or password"));
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
-            throw new RuntimeException("Invalid email or password");
+            throw new InavlidCredentialsException("Invalid email or password");
         }
         String token = jwtUtil.generateToken(user.getEmail());
         return new AuthResponse(token, user.getEmail(), user.getFullName());

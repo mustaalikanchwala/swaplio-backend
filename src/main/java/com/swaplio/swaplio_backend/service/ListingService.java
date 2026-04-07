@@ -5,6 +5,9 @@ import com.swaplio.swaplio_backend.dto.listing.CreateListingRequest;
 import com.swaplio.swaplio_backend.dto.listing.ListingImageResponse;
 import com.swaplio.swaplio_backend.dto.listing.ListingResponse;
 import com.swaplio.swaplio_backend.dto.listing.UpdateListingRequest;
+import com.swaplio.swaplio_backend.exception.CategoryNotFoundException;
+import com.swaplio.swaplio_backend.exception.InavlidCredentialsException;
+import com.swaplio.swaplio_backend.exception.ListingNotFoundException;
 import com.swaplio.swaplio_backend.model.Category;
 import com.swaplio.swaplio_backend.model.Listing;
 import com.swaplio.swaplio_backend.model.ListingImage;
@@ -39,9 +42,9 @@ public class ListingService {
     // ─── CREATE ──────────────────────────────────────────────────────────────
     public ListingResponse createListing(CreateListingRequest request, String sellerEmail) {
         User seller = userRepository.findByEmail(sellerEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InavlidCredentialsException("User not found"));
         Category category = categoryRepository.findById(request.categoryId())
-                .orElseThrow(() -> new RuntimeException("Category not found"));
+                .orElseThrow(() -> new CategoryNotFoundException("Category not found"));
 
         Listing listing = listingRepository.save(Listing.builder()
                             .seller(seller)
@@ -74,7 +77,7 @@ public class ListingService {
     @Transactional(readOnly = true)
     public ListingResponse getListingById(UUID id) {
         return toResponse(listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Listing not found")));
+                .orElseThrow(() -> new ListingNotFoundException("Listing not found")));
     }
 
     @Transactional(readOnly = true)
@@ -97,7 +100,7 @@ public class ListingService {
     // ─── UPDATE ──────────────────────────────────────────────────────────────
     public ListingResponse updateListing(UUID id, UpdateListingRequest request, String sellerEmail) {
         Listing listing = listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
+                .orElseThrow(() -> new ListingNotFoundException("Listing not found"));
         if (!listing.getSeller().getEmail().equals(sellerEmail)) {
             throw new RuntimeException("You can only edit your own listings");
         }
@@ -135,7 +138,7 @@ public class ListingService {
     // ─── MARK AS SOLD ─────────────────────────────────────────────────────────
     public void markAsSold(UUID id) {
         Listing listing = listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
+                .orElseThrow(() -> new ListingNotFoundException("Listing not found"));
         listing.setSold(true);
         listing.setDeleted(true);       // soft delete
         listing.setDeletedAt(LocalDateTime.now());
@@ -145,7 +148,7 @@ public class ListingService {
     // ─── DELETE ──────────────────────────────────────────────────────────────
     public void deleteListing(UUID id, String sellerEmail) {
         Listing listing = listingRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
+                .orElseThrow(() -> new ListingNotFoundException("Listing not found"));
         if (!listing.getSeller().getEmail().equals(sellerEmail)) {
             throw new RuntimeException("You can only delete your own listings");
         }

@@ -2,6 +2,8 @@ package com.swaplio.swaplio_backend.service;
 
 // service/MeetingService.java
 import com.swaplio.swaplio_backend.dto.meeting.CreateMeetingRequest;
+import com.swaplio.swaplio_backend.exception.InavlidCredentialsException;
+import com.swaplio.swaplio_backend.exception.ListingNotFoundException;
 import com.swaplio.swaplio_backend.model.Listing;
 import com.swaplio.swaplio_backend.model.Meeting;
 import com.swaplio.swaplio_backend.model.User;
@@ -23,9 +25,9 @@ public class MeetingService {
 
     public Meeting scheduleMeeting(CreateMeetingRequest request, String buyerEmail) {
         User buyer = userRepository.findByEmail(buyerEmail)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InavlidCredentialsException("User not found"));
         Listing listing = listingRepository.findById(request.listingId())
-                .orElseThrow(() -> new RuntimeException("Listing not found"));
+                .orElseThrow(() -> new ListingNotFoundException("Listing not found"));
 
         Meeting meeting = Meeting.builder()
                 .listing(listing)
@@ -41,13 +43,13 @@ public class MeetingService {
 
     public List<Meeting> getMyMeetingsAsBuyer(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InavlidCredentialsException("User not found"));
         return meetingRepository.findByBuyerId(user.getId());
     }
 
     public List<Meeting> getMyMeetingsAsSeller(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InavlidCredentialsException("User not found"));
         return meetingRepository.findBySellerId(user.getId());
     }
 }
