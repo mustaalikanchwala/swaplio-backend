@@ -5,6 +5,7 @@ import com.swaplio.swaplio_backend.filter.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -26,8 +27,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints — no login needed
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/listings/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,"/api/listings/**").permitAll()
                         .requestMatchers("/api/categories/**").permitAll()
+                        // Add these three lines for Swagger
+                        .requestMatchers("/swagger-ui/**").permitAll()
+                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui.html").permitAll()
                         // Everything else requires login
                         .anyRequest().authenticated()
                 )

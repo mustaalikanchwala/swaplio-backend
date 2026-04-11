@@ -55,6 +55,15 @@ public class ListingController {
                 listingService.searchListings(keyword, categoryId, minPrice, maxPrice, page, size));
     }
 
+    // GET /api/listings/my?page=0&size=10
+    @GetMapping("/my")
+    public ResponseEntity<Page<ListingResponse>> getMyListings(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication auth) {
+        return ResponseEntity.ok(listingService.getMyListings(auth.getName(), page, size));
+    }
+
     // POST /api/listings  (requires login)
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ListingResponse> createListing(

@@ -97,6 +97,17 @@ public class ListingService {
         return getAllListings(page, size);
     }
 
+    @Transactional(readOnly = true)
+    public Page<ListingResponse> getMyListings(String sellerEmail, int page, int size) {
+        User seller = userRepository.findByEmail(sellerEmail)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
+        return listingRepository
+                .findBySellerIdAndIsDeletedFalse(seller.getId(), pageable)
+                .map(this::toResponse);
+    }
+
     // ─── UPDATE ──────────────────────────────────────────────────────────────
     public ListingResponse updateListing(UUID id, UpdateListingRequest request, String sellerEmail) {
         Listing listing = listingRepository.findById(id)
