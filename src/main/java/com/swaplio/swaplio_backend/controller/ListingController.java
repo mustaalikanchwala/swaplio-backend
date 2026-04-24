@@ -47,12 +47,13 @@ public class ListingController {
     public ResponseEntity<Page<ListingResponse>> searchListings(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) String condition,
             @RequestParam(required = false) BigDecimal minPrice,
             @RequestParam(required = false) BigDecimal maxPrice,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         return ResponseEntity.ok(
-                listingService.searchListings(keyword, categoryId, minPrice, maxPrice, page, size));
+                listingService.searchListings(keyword, categoryId,condition, minPrice, maxPrice, page, size));
     }
 
     // GET /api/listings/my?page=0&size=10

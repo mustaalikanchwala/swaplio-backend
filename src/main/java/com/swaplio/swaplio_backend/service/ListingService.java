@@ -16,8 +16,10 @@ import com.swaplio.swaplio_backend.repository.CategoryRepository;
 import com.swaplio.swaplio_backend.repository.ListingImageRepository;
 import com.swaplio.swaplio_backend.repository.ListingRepository;
 import com.swaplio.swaplio_backend.repository.UserRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -82,19 +84,46 @@ public class ListingService {
 
     @Transactional(readOnly = true)
     public Page<ListingResponse> searchListings(String keyword, UUID categoryId,
-                                        BigDecimal minPrice, BigDecimal maxPrice,
-                                        int page, int size) {
+                                                String condition,
+                                                BigDecimal minPrice, BigDecimal maxPrice,
+                                                int page, int size) {
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        if (keyword != null && !keyword.isEmpty()) {
-            return listingRepository.searchListings(keyword, pageable).map(this::toResponse);
-        }
-        if (categoryId != null) {
-            return listingRepository.findByCategoryIdAndIsSoldFalseAndIsDeletedFalse(categoryId, pageable).map(this::toResponse);
-        }
-        if (minPrice != null && maxPrice != null) {
-            return listingRepository.findByPriceRange(minPrice, maxPrice, pageable).map(this::toResponse);
-        }
-        return getAllListings(page, size);
+
+        Specification<Listing> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Always filter out sold/deleted
+            predicates.add(cb.equal(root.get("isSold"), false));
+            predicates.add(cb.equal(root.get("isDeleted"), false));
+
+            if (keyword != null && !keyword.isBlank()) {
+                String like = "%" + keyword.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(root.get("title")), like),
+                        cb.like(cb.lower(root.get("description")), like)
+                ));
+            }
+
+            if (categoryId != null) {
+                predicates.add(cb.equal(root.get("category").get("id"), categoryId));
+            }
+
+            if (condition != null && !condition.isBlank()) {
+                predicates.add(cb.equal(root.get("condition"), condition));
+            }
+
+            if (minPrice != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("price"), minPrice));
+            }
+
+            if (maxPrice != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("price"), maxPrice));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return listingRepository.findAll(spec, pageable).map(this::toResponse);
     }
 
     @Transactional(readOnly = true)
