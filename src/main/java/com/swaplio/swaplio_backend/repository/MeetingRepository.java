@@ -2,7 +2,9 @@
 package com.swaplio.swaplio_backend.repository;
 
 
+import com.swaplio.swaplio_backend.dto.meeting.MeetingStatus;
 import com.swaplio.swaplio_backend.model.Meeting;
+import com.swaplio.swaplio_backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -14,4 +16,6 @@ public interface MeetingRepository extends JpaRepository<Meeting, UUID> {
     List<Meeting> findByBuyerId(UUID buyerId);
     List<Meeting> findBySellerId(UUID sellerId);
     List<Meeting> findByListingId(UUID listingId);
+
+    boolean existsByBuyerAndListingIdAndStatusIn(User buyer, UUID id, List<MeetingStatus> status);
 }

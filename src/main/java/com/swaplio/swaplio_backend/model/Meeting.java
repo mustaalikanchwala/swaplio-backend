@@ -1,6 +1,7 @@
 package com.swaplio.swaplio_backend.model;
 
 
+import com.swaplio.swaplio_backend.dto.meeting.MeetingStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
@@ -19,6 +20,7 @@ public class Meeting {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    // ── Parties ──────────────────────────────────────────────────────────────
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "listing_id", nullable = false)
     private Listing listing;
@@ -31,6 +33,7 @@ public class Meeting {
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
 
+    // ── Buyer's originally requested time ────────────────────────────────────
     @Column(nullable = false)
     private LocalDate meetingDate;
 
@@ -40,12 +43,34 @@ public class Meeting {
     @Column(nullable = false)
     private String location;
 
-    // "PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"
-    @Builder.Default
-    private String status = "PENDING";
-
     private String notes;
 
+    // ── Seller's proposed alternate time (only set when RESCHEDULED) ─────────
+    private LocalDate proposedDate;
+    private LocalTime proposedTime;
+    private String proposedLocation;
+    private String sellerNote;         // optional note when accepting / rescheduling
+
+    // ── Status ───────────────────────────────────────────────────────────────
+    /**
+     * Lifecycle:
+     *
+     *  PENDING
+     *    ├─► CONFIRMED    (seller accepts buyer's original time)
+     *    ├─► REJECTED     (seller rejects entirely)
+     *    └─► RESCHEDULED  (seller proposes a new time)
+     *              ├─► CONFIRMED   (buyer accepts seller's proposed time)
+     *              └─► REJECTED    (buyer rejects seller's proposed time)
+     *
+     *  CONFIRMED ──► COMPLETED  (either party marks done)
+     *  CONFIRMED ──► CANCELLED  (either party cancels)
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private MeetingStatus status = MeetingStatus.PENDING;
+
+    // ── Timestamps ───────────────────────────────────────────────────────────
     @CreationTimestamp
     private LocalDateTime createdAt;
 
