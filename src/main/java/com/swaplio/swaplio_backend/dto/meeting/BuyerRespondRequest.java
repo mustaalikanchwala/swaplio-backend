@@ -1,6 +1,5 @@
 package com.swaplio.swaplio_backend.dto.meeting;
 
-import com.swaplio.swaplio_backend.model.Meeting.MeetingStatus;
 import jakarta.validation.constraints.NotNull;
 
 /**

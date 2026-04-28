@@ -1,17 +1,18 @@
 // controller/MeetingController.java
 package com.swaplio.swaplio_backend.controller;
 
-import com.swaplio.swaplio_backend.dto.meeting.BuyerRespondRequest;
-import com.swaplio.swaplio_backend.dto.meeting.CreateMeetingRequest;
-import com.swaplio.swaplio_backend.dto.meeting.MeetingResponse;
-import com.swaplio.swaplio_backend.dto.meeting.SellerRespondRequest;
+import com.swaplio.swaplio_backend.dto.meeting.*;
 import com.swaplio.swaplio_backend.service.MeetingService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -60,15 +61,43 @@ public class MeetingController {
 
     /**
      * GET /api/meetings/my/buying
-     * All meeting requests the logged-in user sent as a buyer.
+     *
+     * All params are optional — send only what you need:
+     *
+     *   GET /api/meetings/my/buying                              → all meetings
+     *   GET /api/meetings/my/buying?status=PENDING              → only pending
+     *   GET /api/meetings/my/buying?status=RESCHEDULED          → needs buyer action
+     *   GET /api/meetings/my/buying?startDate=2026-04-01&endDate=2026-04-30  → this month
+     *   GET /api/meetings/my/buying?status=CONFIRMED&startDate=2026-04-01    → confirmed this month+
      */
-    @Operation(summary = "Get my meetings as buyer")
+    @Operation(
+            summary = "Get my meetings as buyer",
+            description = """
+            Returns buyer's meetings with optional filters.
+            All params are optional — omit any to skip that filter.
+            
+            status values: PENDING, RESCHEDULED, CONFIRMED, REJECTED, COMPLETED, CANCELLED
+            dates format:  yyyy-MM-dd
+            """
+    )
     @GetMapping("/my/buying")
     public ResponseEntity<List<MeetingResponse>> getMyMeetingsAsBuyer(
+            @Parameter(description = "Filter by status (optional)")
+            @RequestParam(required = false) MeetingStatus status,
+
+            @Parameter(description = "Meetings on or after this date (optional) — format: yyyy-MM-dd")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+
+            @Parameter(description = "Meetings on or before this date (optional) — format: yyyy-MM-dd")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+
             Authentication auth) {
 
         return ResponseEntity.ok(
-                meetingService.getMyMeetingsAsBuyer(auth.getName()));
+                meetingService.getMyMeetingsAsBuyer(
+                        auth.getName(), status, startDate, endDate));
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -93,17 +122,49 @@ public class MeetingController {
                 meetingService.sellerRespond(id, request, auth.getName()));
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // SELLER
+    // ─────────────────────────────────────────────────────────────────────────
+
     /**
      * GET /api/meetings/my/selling
-     * All incoming meeting requests the logged-in user received as a seller.
+     *
+     * All params are optional — send only what you need:
+     *
+     *   GET /api/meetings/my/selling                             → all meetings
+     *   GET /api/meetings/my/selling?status=PENDING             → new requests needing action
+     *   GET /api/meetings/my/selling?status=CONFIRMED           → upcoming confirmed meetings
+     *   GET /api/meetings/my/selling?startDate=2026-04-01&endDate=2026-04-30  → this month
+     *   GET /api/meetings/my/selling?status=PENDING&startDate=2026-04-01      → pending this month+
      */
-    @Operation(summary = "Get my meetings as seller")
+    @Operation(
+            summary = "Get my meetings as seller",
+            description = """
+            Returns seller's meetings with optional filters.
+            All params are optional — omit any to skip that filter.
+            
+            status values: PENDING, RESCHEDULED, CONFIRMED, REJECTED, COMPLETED, CANCELLED
+            dates format:  yyyy-MM-dd
+            """
+    )
     @GetMapping("/my/selling")
     public ResponseEntity<List<MeetingResponse>> getMyMeetingsAsSeller(
+            @Parameter(description = "Filter by status (optional)")
+            @RequestParam(required = false) MeetingStatus status,
+
+            @Parameter(description = "Meetings on or after this date (optional) — format: yyyy-MM-dd")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+
+            @Parameter(description = "Meetings on or before this date (optional) — format: yyyy-MM-dd")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+
             Authentication auth) {
 
         return ResponseEntity.ok(
-                meetingService.getMyMeetingsAsSeller(auth.getName()));
+                meetingService.getMyMeetingsAsSeller(
+                        auth.getName(), status, startDate, endDate));
     }
 
     // ─────────────────────────────────────────────────────────────────────────

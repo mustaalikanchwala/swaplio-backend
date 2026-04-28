@@ -75,6 +75,13 @@ public class GlobalExceptionHandler {
         return buildError(HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
+    // ─── 409 — Conflict ───────────────────────────────────────────
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String,Object>> handleIllegalState(
+            IllegalStateException ex) {
+        return buildError(HttpStatus.CONFLICT, ex.getMessage());
+    }
+
     // CUSTOM EXCEPTION HANDLING
     @ExceptionHandler(EmailAlreadyRegisterException.class)
     public ResponseEntity<Map<String, Object>> handleEmailAlreadyRegister(
@@ -95,6 +102,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleListingNotFound(
             ListingNotFoundException ex) {
         return buildError(HttpStatus.CONFLICT, ex.getMessage());
+    }
+    @ExceptionHandler(MeetingNotFoundException.class)
+    public ResponseEntity<Map<String,Object>> handleMeetingNotFound(
+            MeetingNotFoundException ex) {
+        return buildError(HttpStatus.NOT_FOUND, ex.getMessage());
     }
 
 }

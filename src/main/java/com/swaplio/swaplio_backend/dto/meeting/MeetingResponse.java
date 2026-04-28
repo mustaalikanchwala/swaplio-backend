@@ -1,7 +1,6 @@
 package com.swaplio.swaplio_backend.dto.meeting;
 
 import com.swaplio.swaplio_backend.model.Meeting;
-import com.swaplio.swaplio_backend.model.Meeting.MeetingStatus;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
